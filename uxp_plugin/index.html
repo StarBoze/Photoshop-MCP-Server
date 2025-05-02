@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Photoshop MCP</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            color: #eee;
+            background-color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #555;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-dot.connected {
+            background-color: #4CAF50;
+        }
+        .status-dot.disconnected {
+            background-color: #F44336;
+        }
+        .status-dot.connecting {
+            background-color: #FFC107;
+        }
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #222;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            word-wrap: break-word;
+        }
+        .log-entry.info {
+            color: #8bc34a;
+        }
+        .log-entry.error {
+            color: #f44336;
+        }
+        .log-entry.warning {
+            color: #ffc107;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 12px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div id="status-dot" class="status-dot disconnected"></div>
+                <span id="status-text">未接続</span>
+            </div>
+            <button id="connect-button" class="button">接続</button>
+        </div>
+        <div class="log-container" id="log-container"></div>
+    </div>
+
+    <script src="main.js"></script>
+    <script src="websocket.js"></script>
+    <script src="photoshop_api.js"></script>
+</body>
+</html>

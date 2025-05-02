@@ -1,0 +1,43 @@
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 仮想環境
+venv/
+ENV/
+env/
+.env/
+.venv/
+
+# IDE関連
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ログファイル
+*.log
+
+# テスト関連
+.coverage
+htmlcov/
+.pytest_cache/
