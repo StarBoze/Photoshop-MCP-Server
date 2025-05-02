@@ -47,6 +47,56 @@ pip install -e .
 
 詳細なインストール手順は[インストールガイド](docs/installation.md)を参照してください。
 
+### 環境構築の詳細
+
+#### 仮想環境の作成と管理
+
+Pythonの仮想環境を使用することで、依存関係の競合を避けることができます：
+
+```bash
+# 仮想環境の作成
+python -m venv venv
+
+# 仮想環境の有効化（macOS/Linux）
+source venv/bin/activate
+
+# 仮想環境の有効化（Windows）
+venv\Scripts\activate
+
+# 依存パッケージのインストール
+pip install -e .
+```
+
+#### 依存パッケージ
+
+主な依存パッケージ：
+
+- FastAPI: RESTおよびWebSocketエンドポイントの実装
+- Uvicorn: ASGIサーバー
+- Pydantic: データバリデーション
+- Starlette: WebSocketサポート
+- psutil: プロセス管理（Clusterモード）
+- grpcio: gRPC通信（Clusterモード）
+- litellm: LLM統合（自動レタッチ機能）
+
+#### 実行モード
+
+サーバーは以下のモードで実行できます：
+
+- **通常モード**: `photoshop-mcp-server start`
+  - バックグラウンドでサーバーを起動
+
+- **フォアグラウンドモード**: `photoshop-mcp-server start --foreground`
+  - ターミナルにログを表示しながら実行
+  - デバッグ時に便利
+
+- **デバッグモード**: `photoshop-mcp-server start --debug`
+  - 詳細なログを表示
+  - リクエストとレスポンスの内容も表示
+
+- **UXPモード**: `photoshop-mcp-server start --bridge-mode uxp`
+  - UXPプラグインを使用してPhotoshopを制御
+
 ## 使用方法
 
 ### 基本的な使用方法
@@ -103,6 +153,42 @@ POST /openFile
   "bridge_mode": "uxp"
 }
 ```
+
+### UXPプラグインのインストール詳細
+
+UXPプラグインを使用するには、Adobe UXP Developer Toolが必要です。
+
+#### Adobe UXP Developer Toolのインストール
+
+1. [Adobe UXP Developer Tool](https://developer.adobe.com/photoshop/uxp/devtool/)から最新版をダウンロード
+2. ダウンロードしたインストーラーを実行し、指示に従ってインストール
+3. インストール完了後、Adobe UXP Developer Toolを起動
+
+#### プラグインのインストール手順
+
+1. プラグインのパッケージング
+   ```bash
+   photoshop-mcp-server package_plugin
+   ```
+   これにより、`dist/photoshop-mcp.zip`にプラグインパッケージが作成されます。
+
+2. UXP Developer Toolでのプラグイン追加
+   - UXP Developer Toolで「Add Plugin」ボタンをクリック
+   - 作成した`dist/photoshop-mcp.zip`を選択
+   - プラグインをロード（「Load」ボタンをクリック）
+
+3. Photoshopでの有効化
+   - Photoshopを起動（既に起動している場合は再起動）
+   - プラグインメニューから「Photoshop MCP」を選択して有効化
+
+4. MCPサーバーの起動（UXPモード）
+   ```bash
+   photoshop-mcp-server start --bridge-mode uxp
+   ```
+
+5. 接続確認
+   - サーバーのログに「UXP Plugin connected」というメッセージが表示されれば接続成功
+   - 接続に失敗した場合は、[トラブルシューティング](#トラブルシューティング)を参照
 
 ### WebSocketエンドポイント
 
@@ -366,6 +452,175 @@ POST /autoRetouch
 4. 全体的な色調を暖かみのある雰囲気に調整する
 ```
 
+## MCPクライアント設定
+
+Photoshop MCP ServerをAIアシスタントなどのMCPクライアントと連携するには、設定ファイルが必要です。
+
+### 設定ファイルの構造
+
+設定ファイルは通常`mcp-config/photoshop-mcp-server.json`に配置され、以下の構造を持ちます：
+
+```json
+{
+  "server_info": {
+    "name": "photoshop-mcp-server",
+    "description": "Photoshop MCP Server for macOS and Windows",
+    "version": "0.2.0",
+    "endpoint": "http://localhost:5001"
+  },
+  "tools": [
+    {
+      "name": "open_file",
+      "description": "Open a file in Photoshop",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the file"
+          },
+          "bridge_mode": {
+            "type": "string",
+            "description": "Bridge mode to use (applescript, powershell, uxp)",
+            "default": "default"
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "save_file",
+      "description": "Save the current file",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to save the file"
+          },
+          "format": {
+            "type": "string",
+            "description": "File format (psd, jpg, png, tiff)",
+            "default": "psd"
+          },
+          "bridge_mode": {
+            "type": "string",
+            "description": "Bridge mode to use",
+            "default": "default"
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "run_action",
+      "description": "Run a Photoshop action",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action_set": {
+            "type": "string",
+            "description": "Action set name"
+          },
+          "action_name": {
+            "type": "string",
+            "description": "Action name"
+          },
+          "bridge_mode": {
+            "type": "string",
+            "description": "Bridge mode to use",
+            "default": "default"
+          }
+        },
+        "required": ["action_set", "action_name"]
+      }
+    },
+    {
+      "name": "generate_thumbnail",
+      "description": "Generate a thumbnail from a PSD file",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the PSD file"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Thumbnail width",
+            "default": 256
+          },
+          "height": {
+            "type": "integer",
+            "description": "Thumbnail height",
+            "default": 256
+          },
+          "format": {
+            "type": "string",
+            "description": "Image format (jpeg, png)",
+            "default": "jpeg"
+          },
+          "quality": {
+            "type": "integer",
+            "description": "Image quality (1-100)",
+            "default": 80
+          },
+          "bridge_mode": {
+            "type": "string",
+            "description": "Bridge mode to use",
+            "default": "default"
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "auto_retouch",
+      "description": "Auto retouch an image using LLM",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the image"
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Retouch instructions"
+          },
+          "bridge_mode": {
+            "type": "string",
+            "description": "Bridge mode to use",
+            "default": "default"
+          }
+        },
+        "required": ["path", "instructions"]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "photoshop://status",
+      "description": "Get server status"
+    },
+    {
+      "uri": "photoshop://version",
+      "description": "Get server version"
+    },
+    {
+      "uri": "photoshop://plugin/status",
+      "description": "Get UXP plugin status"
+    }
+  ]
+}
+```
+
+### 設定ファイルの配置
+
+1. `mcp-config`ディレクトリを作成（存在しない場合）
+2. 上記の設定ファイルを`mcp-config/photoshop-mcp-server.json`として保存
+3. MCPクライアントがこの設定ファイルを読み込めるようにする
+
 ### クライアント実装例
 
 #### JavaScript (WebSocket)
@@ -476,6 +731,129 @@ if response.status_code == 200:
 else:
     print(f"エラー: {response.status_code} - {response.text}")
 ```
+
+## AIアシスタントとの連携
+
+Photoshop MCP Serverは、AIアシスタントからPhotoshopを操作するためのインターフェースを提供します。
+
+### 連携の仕組み
+
+1. MCPクライアント設定ファイルをAIアシスタントに登録
+2. AIアシスタントがMCPプロトコルを通じてPhotoshop MCP Serverと通信
+3. Photoshop MCP ServerがPhotoshopを制御
+
+### サンプルプロンプト例
+
+```
+Photoshopで以下の操作を行ってください：
+1. 画像ファイル "/path/to/image.jpg" を開く
+2. 明るさとコントラストを調整して、画像を明るくする
+3. 結果を "/path/to/output.jpg" として保存する
+```
+
+### AIアシスタントのレスポンス例
+
+```
+Photoshopでの操作を実行します。
+
+1. 画像ファイルを開きます...
+   - ファイル: /path/to/image.jpg
+   - ステータス: 成功
+
+2. 明るさとコントラストを調整します...
+   - 明るさ: +15
+   - コントラスト: +10
+   - ステータス: 成功
+
+3. 結果を保存します...
+   - 保存先: /path/to/output.jpg
+   - 形式: JPEG
+   - 品質: 90%
+   - ステータス: 成功
+
+すべての操作が正常に完了しました。
+```
+
+### 連携時の注意点
+
+- AIアシスタントがローカルファイルシステムにアクセスできる必要があります
+- ファイルパスは絶対パスで指定することを推奨
+- 大きなファイルの処理には時間がかかる場合があります
+- UXPプラグインを使用する場合は、Photoshopが起動している必要があります
+
+## トラブルシューティング
+
+### よくある問題と解決策
+
+#### サーバー起動時のエラー
+
+**問題**: サーバーが起動しない、または起動後すぐに終了する
+
+**解決策**:
+- ポート5001が他のアプリケーションで使用されていないか確認
+  ```bash
+  # macOS/Linux
+  lsof -i :5001
+  
+  # Windows
+  netstat -ano | findstr :5001
+  ```
+- 別のポートを指定して起動
+  ```bash
+  photoshop-mcp-server start --port 5002
+  ```
+- ログファイルを確認
+  ```bash
+  cat ~/.photoshop_mcp_server/logs/server.log
+  ```
+
+#### UXPプラグイン接続エラー
+
+**問題**: UXPプラグインがサーバーに接続できない
+
+**解決策**:
+- Photoshopが起動していることを確認
+- UXPプラグインが正しくインストールされていることを確認
+- サーバーとプラグインが同じポートを使用していることを確認
+- ファイアウォールがWebSocket接続をブロックしていないか確認
+- サーバーを再起動し、Photoshopも再起動
+
+#### AppleScript/PowerShellエラー
+
+**問題**: AppleScriptまたはPowerShellバックエンドでエラーが発生する
+
+**解決策**:
+- Photoshopが起動していることを確認
+- スクリプト実行権限を確認
+  - macOS: `sudo chmod +x /usr/bin/osascript`
+  - Windows: PowerShellの実行ポリシーを確認 `Get-ExecutionPolicy`
+- デバッグモードで詳細なログを確認
+  ```bash
+  photoshop-mcp-server start --debug --foreground
+  ```
+
+### ログファイルの場所
+
+ログファイルは以下の場所に保存されます：
+
+- macOS: `~/.photoshop_mcp_server/logs/`
+- Windows: `%USERPROFILE%\.photoshop_mcp_server\logs\`
+
+主なログファイル：
+- `server.log`: サーバーのメインログ
+- `api.log`: APIリクエストとレスポンスのログ
+- `bridge.log`: バックエンド（AppleScript/PowerShell/UXP）のログ
+- `cluster.log`: Clusterモードのログ
+
+### サポートとフィードバック
+
+問題が解決しない場合は、以下の情報を含めて[GitHubのIssue](https://github.com/StarBoze/photoshop-mcp-server/issues)を作成してください：
+
+- 使用しているOS（バージョン含む）
+- Photoshopのバージョン
+- 実行したコマンド
+- エラーメッセージ
+- ログファイルの関連部分
 
 ## ライセンス
 
