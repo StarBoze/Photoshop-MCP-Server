@@ -1,0 +1,237 @@
+syntax = "proto3";
+
+package photoshop.mcp;
+
+// Photoshopサービスの定義
+service PhotoshopService {
+  // コマンド実行
+  rpc ExecuteCommand (CommandRequest) returns (CommandResponse);
+  
+  // ドキュメント情報取得
+  rpc GetDocumentInfo (DocumentInfoRequest) returns (DocumentInfoResponse);
+  
+  // レイヤー情報取得
+  rpc GetLayerInfo (LayerInfoRequest) returns (LayerInfoResponse);
+  
+  // ドキュメントエクスポート
+  rpc ExportDocument (ExportRequest) returns (ExportResponse);
+  
+  // ノードのヘルスチェック
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// クラスターディスパッチャーサービスの定義
+service ClusterDispatcherService {
+  // ノード登録
+  rpc RegisterNode (RegisterNodeRequest) returns (RegisterNodeResponse);
+  
+  // ノード登録解除
+  rpc UnregisterNode (UnregisterNodeRequest) returns (UnregisterNodeResponse);
+  
+  // ノードステータス取得
+  rpc GetNodeStatus (NodeStatusRequest) returns (NodeStatusResponse);
+  
+  // ジョブディスパッチ
+  rpc DispatchJob (DispatchJobRequest) returns (DispatchJobResponse);
+  
+  // ジョブステータス取得
+  rpc GetJobStatus (JobStatusRequest) returns (JobStatusResponse);
+  
+  // クラスターステータス取得
+  rpc GetClusterStatus (ClusterStatusRequest) returns (ClusterStatusResponse);
+}
+
+// コマンド実行リクエスト
+message CommandRequest {
+  string command = 1;
+  map<string, string> parameters = 2;
+  string job_id = 3;
+}
+
+// コマンド実行レスポンス
+message CommandResponse {
+  bool success = 1;
+  string result = 2;
+  string error_message = 3;
+  int32 status_code = 4;
+}
+
+// ドキュメント情報リクエスト
+message DocumentInfoRequest {
+  string document_id = 1;
+}
+
+// ドキュメント情報レスポンス
+message DocumentInfoResponse {
+  string document_id = 1;
+  string name = 2;
+  int32 width = 3;
+  int32 height = 4;
+  string color_mode = 5;
+  int32 resolution = 6;
+  repeated string layer_ids = 7;
+  bool success = 8;
+  string error_message = 9;
+}
+
+// レイヤー情報リクエスト
+message LayerInfoRequest {
+  string document_id = 1;
+  string layer_id = 2;
+}
+
+// レイヤー情報レスポンス
+message LayerInfoResponse {
+  string layer_id = 1;
+  string name = 2;
+  bool visible = 3;
+  string layer_type = 4;
+  int32 opacity = 5;
+  bool locked = 6;
+  bool success = 7;
+  string error_message = 8;
+}
+
+// エクスポートリクエスト
+message ExportRequest {
+  string document_id = 1;
+  string format = 2;  // "jpeg", "png", etc.
+  string path = 3;
+  int32 quality = 4;  // 0-100 for jpeg
+  bool include_metadata = 5;
+}
+
+// エクスポートレスポンス
+message ExportResponse {
+  bool success = 1;
+  string path = 2;
+  int64 file_size = 3;
+  string error_message = 4;
+}
+
+// ヘルスチェックリクエスト
+message HealthCheckRequest {
+  string node_id = 1;
+}
+
+// ヘルスチェックレスポンス
+message HealthCheckResponse {
+  enum Status {
+    UNKNOWN = 0;
+    HEALTHY = 1;
+    DEGRADED = 2;
+    UNHEALTHY = 3;
+  }
+  Status status = 1;
+  string message = 2;
+  double cpu_usage = 3;
+  double memory_usage = 4;
+  int32 active_jobs = 5;
+  int64 timestamp = 6;
+}
+
+// ノード登録リクエスト
+message RegisterNodeRequest {
+  string node_id = 1;
+  string host = 2;
+  int32 port = 3;
+  repeated string capabilities = 4;
+  int32 max_concurrent_jobs = 5;
+}
+
+// ノード登録レスポンス
+message RegisterNodeResponse {
+  bool success = 1;
+  string cluster_id = 2;
+  string error_message = 3;
+}
+
+// ノード登録解除リクエスト
+message UnregisterNodeRequest {
+  string node_id = 1;
+  string cluster_id = 2;
+}
+
+// ノード登録解除レスポンス
+message UnregisterNodeResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ノードステータスリクエスト
+message NodeStatusRequest {
+  string node_id = 1;
+}
+
+// ノードステータスレスポンス
+message NodeStatusResponse {
+  string node_id = 1;
+  HealthCheckResponse.Status status = 2;
+  int32 active_jobs = 3;
+  int32 completed_jobs = 4;
+  int32 failed_jobs = 5;
+  double uptime = 6;
+  string version = 7;
+  repeated string active_job_ids = 8;
+}
+
+// ジョブディスパッチリクエスト
+message DispatchJobRequest {
+  string job_id = 1;
+  string job_type = 2;
+  bytes payload = 3;
+  int32 priority = 4;
+  string callback_url = 5;
+}
+
+// ジョブディスパッチレスポンス
+message DispatchJobResponse {
+  bool accepted = 1;
+  string assigned_node_id = 2;
+  string job_id = 3;
+  int64 estimated_completion_time = 4;
+  string error_message = 5;
+}
+
+// ジョブステータスリクエスト
+message JobStatusRequest {
+  string job_id = 1;
+}
+
+// ジョブステータスレスポンス
+message JobStatusResponse {
+  enum JobStatus {
+    UNKNOWN = 0;
+    QUEUED = 1;
+    RUNNING = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+    CANCELLED = 5;
+  }
+  string job_id = 1;
+  JobStatus status = 2;
+  string node_id = 3;
+  int32 progress = 4;  // 0-100
+  string result = 5;
+  string error_message = 6;
+  int64 start_time = 7;
+  int64 end_time = 8;
+}
+
+// クラスターステータスリクエスト
+message ClusterStatusRequest {
+  bool include_node_details = 1;
+}
+
+// クラスターステータスレスポンス
+message ClusterStatusResponse {
+  string cluster_id = 1;
+  int32 total_nodes = 2;
+  int32 active_nodes = 3;
+  int32 total_jobs = 4;
+  int32 active_jobs = 5;
+  int32 queued_jobs = 6;
+  int32 completed_jobs = 7;
+  int32 failed_jobs = 8;
+  repeated NodeStatusResponse nodes = 9;
+}

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photoshop-mcp-server"
+version = "0.2.0"
+description = "Model Context Protocol (MCP) server for controlling Photoshop"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "StarBoze", email = "starboze@github.com"},
+]
+dependencies = [
+    "fastapi>=0.95.0",
+    "uvicorn[standard]>=0.21.0",
+    "pydantic>=2.0.0",
+    "typer[all]>=0.9.0",
+    "websockets>=11.0.3",
+    "pillow>=10.0.0",
+    "litellm>=1.0.0",
+    "grpcio>=1.54.0",
+    "grpcio-tools>=1.54.0",
+    "protobuf>=4.22.3",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+]
+
+[project.optional-dependencies]
+macos = [
+    "py-applescript>=1.0.3",
+]
+windows = [
+    "pywin32>=306",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/StarBoze/photoshop-mcp-server"
+"Bug Tracker" = "https://github.com/StarBoze/photoshop-mcp-server/issues"
+
+[project.scripts]
+photoshop-mcp-server = "photoshop_mcp_server.cli:app"
+
+[tool.setuptools]
+packages = ["photoshop_mcp_server"]
