@@ -9,6 +9,8 @@
 1. 様々なLLMプロバイダー（OpenAI、Anthropic、Google等）と統一的に連携するためのインターフェースの作成
 2. ビジョン機能を持つLLMを使用した画像分析
 3. 画像分析とユーザー指示に基づくPhotoshopレタッチ指示の生成
+4. PSDファイルのレイヤー構造の分析
+5. 調整レイヤーを使用した非破壊的なレタッチ指示の生成
 
 ## 要件
 
@@ -73,6 +75,37 @@ python retouch_generation.py path/to/image.jpg --instructions "画像を明る�
 - `--analysis`：既存の分析JSONへのパス（指定しない場合は画像を分析する）
 - `--output`：レタッチ指示を保存するパス（指定しない場合はコンソールに出力）
 
+### レイヤー分析
+
+PSDファイルのレイヤー構造を分析する：
+
+```bash
+python adjustment_layer_retouch.py path/to/file.psd --analyze-only --output layer_analysis.json
+```
+
+オプション：
+- `--analyze-only`：レタッチ指示を生成せずにレイヤーのみを分析する
+- `--provider`：使用するLLMプロバイダー（openai、anthropic、google）
+- `--model`：使用する特定のモデル（オプション）
+- `--output`：レイヤー分析結果を保存するパス（指定しない場合はコンソールに出力）
+
+### 調整レイヤーを使ったレタッチ
+
+調整レイヤーを使用した非破壊的なレタッチ指示を生成して適用する：
+
+```bash
+python adjustment_layer_retouch.py path/to/image.psd --instructions "コントラストを強調し、色をより鮮やかにする" --output retouch.json --apply
+```
+
+オプション：
+- `--instructions`：レタッチのためのユーザー指示
+- `--provider`：使用するLLMプロバイダー（openai、anthropic、google）
+- `--model`：使用する特定のモデル（オプション）
+- `--layer-analysis`：既存のレイヤー分析JSONへのパス（指定しない場合でPSDファイルの場合は、レイヤーを分析する）
+- `--output`：レタッチ指示を保存するパス（指定しない場合はコンソールに出力）
+- `--apply`：Photoshop MCP Serverを使用して生成されたレタッチ指示を適用する
+- `--server-url`：Photoshop MCP ServerのURL（デフォルト：http://localhost:5001）
+
 ## Photoshop MCP Serverとの連携
 
 これらの例はPhotoshop MCP Serverと連携してレタッチプロセスを自動化できます：
@@ -122,6 +155,62 @@ save_command = {
         "path": "path/to/output.jpg",
         "format": "jpg",
         "quality": 90
+    }
+}
+
+response = requests.post(
+    "http://localhost:5001/api/execute",
+    json=save_command,
+    headers={"Content-Type": "application/json"}
+)
+
+print(f"保存結果: {response.status_code}")
+```
+
+### 非破壊的な調整レイヤーワークフロー
+
+```python
+import json
+import requests
+
+# 1. PSDレイヤーを分析
+layer_analysis = analyze_layers("path/to/image.psd", provider="openai")
+
+# 2. 調整レイヤーレタッチ指示の生成
+retouch_instructions = generate_adjustment_layer_retouch(
+    "path/to/image.psd",
+    instructions="コントラストを強調し、色をより鮮やかにする",
+    provider="openai",
+    layer_analysis=layer_analysis,
+)
+
+# 3. Photoshop MCP Serverを使用して調整レイヤーを適用
+for step in retouch_instructions["retouch_steps"]:
+    # ステップが調整レイヤーの作成かどうかを確認
+    if step["action"] != "create_adjustment_layer":
+        continue
+    
+    # MCP Serverコマンドを準備
+    command = {
+        "action": "create_adjustment_layer",
+        "parameters": step["parameters"]
+    }
+    
+    # コマンドをMCP Serverに送信
+    response = requests.post(
+        "http://localhost:5001/api/execute",
+        json=command,
+        headers={"Content-Type": "application/json"}
+    )
+    
+    print(f"ステップ {step['step']}: {response.status_code}")
+
+# 4. レイヤーを保持するためにPSD形式で結果を保存
+save_command = {
+    "action": "save_file",
+    "parameters": {
+        "path": "path/to/output.psd",
+        "format": "psd"
     }
 }
 
