@@ -276,3 +276,317 @@ class LLMClient:
         except Exception as e:
             logger.error(f"Error in image analysis: {e}")
             raise
+            
+    def analyze_layers(
+        self,
+        image_path: str,
+        prompt: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Analyze the layer structure of a PSD file using the configured LLM.
+        
+        Args:
+            image_path: Path to the PSD file
+            prompt: Custom analysis prompt (if None, a default prompt will be used)
+            system_prompt: Optional system prompt
+            
+        Returns:
+            The layer analysis response
+        """
+        # Verify image exists and is a PSD file
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image not found: {image_path}")
+        
+        if not image_path.lower().endswith('.psd'):
+            logger.warning(f"File {image_path} is not a PSD file, layer analysis may not be accurate")
+        
+        # Encode image to base64
+        with open(image_path, "rb") as image_file:
+            base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+        
+        # Default prompt for layer analysis
+        if prompt is None:
+            prompt = """
+            Analyze this PSD file and identify its layer structure.
+            Provide information about:
+            
+            1. The number of layers
+            2. Layer names and types (regular, adjustment, smart object, text, etc.)
+            3. Layer hierarchy and grouping
+            4. Visibility and blend modes of layers
+            5. Any adjustment layers and their settings
+            
+            Format your response as a structured JSON with the following schema:
+            {
+              "layer_count": number,
+              "layers": [
+                {
+                  "id": number,
+                  "name": "layer name",
+                  "type": "layer type",
+                  "visible": boolean,
+                  "blend_mode": "blend mode",
+                  "opacity": number,
+                  "is_group": boolean,
+                  "parent_group": "parent group name or null",
+                  "children": [child layer ids] or null,
+                  "adjustment_settings": {
+                    "type": "adjustment type",
+                    "settings": {
+                      "param1": "value1",
+                      "param2": "value2"
+                    }
+                  } or null
+                },
+                ...
+              ]
+            }
+            """
+        
+        messages = []
+        
+        # Add system prompt if provided
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        # Prepare content based on provider
+        if self.provider == "openai":
+            content = [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                        "detail": "high"
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        elif self.provider == "anthropic":
+            content = [
+                {
+                    "type": "text",
+                    "text": prompt
+                },
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": base64_image
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        elif self.provider == "google":
+            content = [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}"
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        else:
+            raise ValueError(f"Layer analysis not supported for provider: {self.provider}")
+        
+        # Prepare completion parameters
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": 0.3,  # Lower temperature for more consistent analysis
+            "response_format": {"type": "json_object"}
+        }
+        
+        try:
+            # Call litellm completion
+            response = completion(**params)
+            
+            # Extract and parse the response content
+            content = response.choices[0].message.content
+            try:
+                layer_analysis = json.loads(content)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse JSON response, returning raw content")
+                layer_analysis = {"raw_content": content}
+            
+            return {
+                "content": layer_analysis,
+                "model": response.model,
+                "usage": response.usage,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in layer analysis: {e}")
+            raise
+
+    def generate_adjustment_layer_retouch(
+        self,
+        image_path: str,
+        instructions: str,
+        layer_analysis: Optional[Dict[str, Any]] = None,
+        system_prompt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate non-destructive retouch instructions using adjustment layers.
+        
+        Args:
+            image_path: Path to the image file
+            instructions: User instructions for retouching
+            layer_analysis: Optional layer analysis result (if None, will analyze the image)
+            system_prompt: Optional system prompt
+            
+        Returns:
+            The adjustment layer retouch instructions
+        """
+        # Verify image exists
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image not found: {image_path}")
+        
+        # Encode image to base64
+        with open(image_path, "rb") as image_file:
+            base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+        
+        # Get layer analysis if not provided
+        if layer_analysis is None and image_path.lower().endswith('.psd'):
+            logger.info(f"Analyzing layers of: {image_path}")
+            layer_analysis_response = self.analyze_layers(image_path)
+            layer_analysis = layer_analysis_response["content"]
+        
+        # Prepare prompt for adjustment layer retouch
+        prompt = f"""
+        Based on the following user instructions:
+        {instructions}
+        
+        Generate non-destructive retouch instructions using Photoshop adjustment layers.
+        
+        For each adjustment needed, specify:
+        1. The type of adjustment layer (Levels, Curves, Hue/Saturation, etc.)
+        2. The specific settings for the adjustment
+        3. The blend mode (if different from Normal)
+        4. The opacity (if different from 100%)
+        5. Any layer mask needed
+        
+        Format your response as a structured JSON with the following schema:
+        {{
+          "retouch_steps": [
+            {{
+              "step": 1,
+              "action": "create_adjustment_layer",
+              "parameters": {{
+                "type": "adjustment layer type",
+                "name": "descriptive name",
+                "settings": {{
+                  "param1": "value1",
+                  "param2": "value2"
+                }},
+                "blend_mode": "blend mode",
+                "opacity": number,
+                "mask": {{
+                  "type": "mask type",
+                  "settings": {{
+                    "param1": "value1"
+                  }}
+                }} or null
+              }},
+              "description": "detailed description of the step"
+            }},
+            ...
+          ],
+          "summary": "summary of the retouch approach"
+        }}
+        """
+        
+        # Add layer analysis information if available
+        if layer_analysis:
+            prompt += f"\n\nExisting layer structure:\n{json.dumps(layer_analysis, indent=2)}"
+        
+        messages = []
+        
+        # Add system prompt if provided
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        
+        # Prepare content based on provider
+        if self.provider == "openai":
+            content = [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                        "detail": "high"
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        elif self.provider == "anthropic":
+            content = [
+                {
+                    "type": "text",
+                    "text": prompt
+                },
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": base64_image
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        elif self.provider == "google":
+            content = [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}"
+                    }
+                }
+            ]
+            messages.append({"role": "user", "content": content})
+        
+        else:
+            raise ValueError(f"Adjustment layer retouch not supported for provider: {self.provider}")
+        
+        # Prepare completion parameters
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": 0.7,  # Higher temperature for more creative retouch suggestions
+            "response_format": {"type": "json_object"}
+        }
+        
+        try:
+            # Call litellm completion
+            response = completion(**params)
+            
+            # Extract and parse the response content
+            content = response.choices[0].message.content
+            try:
+                retouch_instructions = json.loads(content)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse JSON response, returning raw content")
+                retouch_instructions = {"raw_content": content}
+            
+            return {
+                "content": retouch_instructions,
+                "model": response.model,
+                "usage": response.usage,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error in adjustment layer retouch generation: {e}")
+            raise
