@@ -36,6 +36,7 @@ env/
 
 # ログファイル
 *.log
+logs/
 
 # テスト関連
 .coverage
