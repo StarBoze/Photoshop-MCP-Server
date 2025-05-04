@@ -138,6 +138,6 @@ python claude_photoshop_mcp.py --help
 
 ## 詳細情報
 
-- [Photoshop MCP Server ドキュメント](https://github.com/your-repo/photoshop_mcp_server/README.md)
+- [Photoshop MCP Server ドキュメント](https://github.com/StarBoze/Photoshop-MCP-Server/blob/main/docs/)
 - [Claude Desktop MCP ドキュメント](https://claude.ai/docs/mcp)
 - [Adobe UXP プラグイン開発ガイド](https://developer.adobe.com/photoshop/uxp/2022/)
